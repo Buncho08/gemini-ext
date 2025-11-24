@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "My Gemini Writer",
+  "version": "0.1.0",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Writer test",
+    "default_popup": "src/popup/index.html"
+  },
+  "description": "説明"
+}
