@@ -1,37 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
+import { useCallback, useRef, useState, type KeyboardEvent } from 'react'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [selectedMode, setSelectedMode] = useState<string>(() => {
+    return localStorage.getItem('translationMode') || 'keigo'
+  })
+  const sessionRef = useRef<Rewriter>(null);
+  // const [availability, setAvailability] = useState<boolean>(false);
+  const agentGen = useCallback(
+    async (prompt: string) => {
+      const isRewriterAvailable = 'Rewriter' in self;
+      if (!isRewriterAvailable) return;
+      const availability: Availability = await Rewriter.availability();
+      if (availability == "available") {
+        if (sessionRef.current === null)
+          sessionRef.current = await Rewriter.create({
+            outputLanguage: "ja",
+        });
+        const answer = sessionRef.current.rewrite(prompt, {context: "お嬢様で！"});
+          // ストリームからチャンクを読み取る
+        answer.then((res) => { console.log(res) })
+      } else {
+          sessionRef.current = await Rewriter.create({
+          monitor(m) {
+            m.addEventListener("downloadprogress", e => {
+              console.log(`Downloaded ${e.loaded * 100}%`);
+            });
+          }
+        });
+      }
+    }
+  ,[]);
 
+  const onkeydownHandler = useCallback(
+    ({
+      currentTarget: { value },
+      ctrlKey,
+      metaKey,
+      code,
+    }: KeyboardEvent<HTMLTextAreaElement>) => {
+      if ([ctrlKey, metaKey].includes(true) && code === "Enter") {
+
+        void agentGen(value);
+      }
+    },
+    [agentGen]
+  );
+
+
+  const isRewriterAvailable = 'Rewriter' in self;
+  const availabilityMessage = isRewriterAvailable ? "対応しています!" : "対応していません!";
+
+  const handleModeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newMode = event.target.value
+    setSelectedMode(newMode)
+    localStorage.setItem('translationMode', newMode)
+  }
   return (
-    <>
-      <div>
-        <h1 className="text-red">
-          uououo
-        </h1>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <main className='w-xl'>
+      <h1>
+        ほんやくくん
+      </h1>
+      {
+        !isRewriterAvailable ? (
+          <p className='text-red-500'>{availabilityMessage}</p>
+        ) : (
+          <>
+          {/* {availability?(<p>使える</p>):(<p>使えない</p>)} */}
+            <h2 className="text-2xl text-amber-700">
+              変換したい言葉を選択してください
+            </h2>
+            <select
+              name=""
+              id=""
+              className='border'
+              value={selectedMode}
+              onChange={handleModeChange}
+            >
+              <option value="keigo">敬語</option>
+              <option value="ojosama">お嬢様</option>
+              <option value="osaka">大阪弁</option>
+              <option value="tsundere">ツンデレ</option>
+            </select>
+            <textarea className='w-20 h-20' onKeyDown={onkeydownHandler} />
+          </>
+        )
+      }
+    </main>
   )
 }
 
